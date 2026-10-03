@@ -96,7 +96,6 @@ Version: l4d2bridge-1.0.0+<hash>
 
 ## 8. 已知限制
 
-- **请不要用任务管理器强杀游戏**：强杀会让 Windows 记一条 `Application Hang`，并且在极端情况下可能留下未释放的共享内存。正常退出请走主菜单。
 - 与真 **RTX Remix 运行时**或第三方 `l4d2-rtx` 包**不要混装**（它们使用 `.trex` 工作目录与 `NvRemixBridge.exe` 名字，本桥已刻意避开这些名字，但两套安装仍会互相干扰）。
 - 本包不含 ENB / ReShade / HookDLL / 帧生成 / ncnn 模型；如需后处理请自行在 64 位侧解决。
 - 文件属性里的版本资源显示 `FileVersion 1.0.0.0`，实际构建号见日志里的 `Version:` 行。
