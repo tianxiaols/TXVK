@@ -46,8 +46,9 @@
 
 建议在游戏内使用**窗口化 / 无边框**（显示模式由 64 位侧接管，窗口化最稳）。
 
+> 本包**只提供 `bin\dxvk_d3d9.dll`**（引擎在 `-vulkan` 下加载的就是这个名字）。
 > 若你的加载链里还有 ENB / HookDLL（它们按 `dxvk_d3d9_last.dll` 这个名字加载下一环），
-> 请把 `bin\dxvk_d3d9.dll` 再复制一份、改名为 `bin\dxvk_d3d9_last.dll`。
+> 请自己把 `bin\dxvk_d3d9.dll` 再复制一份、改名为 `bin\dxvk_d3d9_last.dll`（保持两份同版）。
 
 ## 4. 验证是否生效
 
