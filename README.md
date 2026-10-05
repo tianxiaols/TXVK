@@ -65,13 +65,13 @@ Left 4 Dead 2\bin\.l4d2bridge\RUN_OK.txt
 |---|---|
 | 文件在，`state : clean shutdown …` | 本次运行完全正常（含干净退出）✅ |
 | 文件在，`state : running` | 桥跑起来了，但进程没有干净退出（崩溃/强杀）——去看 `errors\` ⚠️ |
-| 文件**不在** | 这次根本没跑到"能渲染"的状态；原因在 `l4d2bridge\errors\` 与两份日志里 ❌ |
+| 文件**不在** | 这次根本没跑到"能渲染"的状态；原因在 `bin\.l4d2bridge\errors\` 与两份日志里 ❌ |
 
 文件内容含版本号、会话时长、转发命令数、退出原因，以及**要提供给作者的目录路径**。
 
 ### 4.2 日志开头
 
-`<游戏根>\l4d2bridge\logs\bridge32.log` 开头应出现：
+`<游戏根>\bin\.l4d2bridge\logs\bridge32.log` 开头应出现：
 
 ```
 ==================
@@ -86,12 +86,11 @@ Version: l4d2bridge-1.0.0+<hash>
 
 ```
 Left 4 Dead 2\
-├─ bin\.l4d2bridge\                 ← 程序与配置
-│  ├─ L4D2Bridge64.exe
-│  ├─ L4D2Bridge_d3d9_x64.dll
-│  ├─ bridge.conf / dxvk.conf / vkup.cfg
-│  └─ RUN_OK.txt                    ← 「上次运行成功」标记（每次启动重写）
-└─ l4d2bridge\
+└─ bin\.l4d2bridge\                 ← 程序、配置、日志、崩溃转储全在这一个目录
+   ├─ L4D2Bridge64.exe
+   ├─ L4D2Bridge_d3d9_x64.dll
+   ├─ bridge.conf / dxvk.conf / vkup.cfg
+   ├─ RUN_OK.txt                    ← 「上次运行成功」标记（每次启动重写）
    ├─ logs\                         ← 正常日志：都发生了什么
    │  ├─ bridge32.log  bridge64.log     客户端 / 服务端完整日志（含启动配置）
    │  ├─ run_history.log                每局的 START / OK / EXIT 各一行
@@ -105,14 +104,15 @@ Left 4 Dead 2\
 
 `<进程名>` 是 `left4dead2`（游戏进程，32 位侧）或 `L4D2Bridge64`（服务端进程）——谁出的事一眼可见。
 
-> **要让别人给你排障时，只需打包这三样**：`l4d2bridge\logs\` 整个目录、`l4d2bridge\errors\` 整个目录、
+> **要让别人给你排障时，只需打包这一个目录**：`bin\.l4d2bridge\logs\` 整个目录、`bin\.l4d2bridge\errors\` 整个目录、
 > `bin\.l4d2bridge\RUN_OK.txt`。九成问题靠这三样即可定位，不必再让对方翻游戏目录。
 
 ## 5. 常用开关（`bin\.l4d2bridge\bridge.conf`）
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `eliminateRedundantSetterCalls` | True | 状态去重（共 23 处：渲染状态/纹理/采样器/着色器/顶点流/渲染目标/着色器常量…）。怀疑状态类异常时关掉即可立刻排除 |
+| `eliminateRedundantSetterCalls` | True | **值类型**状态去重（`SetRenderState` / `SetTransform` / `SetMaterial` / `SetLight` / `SetViewport` / `SetSamplerState` / `SetTextureStageState` / `SetScissorRect` / `SetClipPlane` 等，逐字节比较，绝对安全）。怀疑状态类异常时关掉即可立刻排除 |
+| `eliminateRedundantObjectSetterCalls` | False | **对象绑定类**去重（`SetTexture` / `SetShader` / `SetStreamSource` / `SetRenderTarget` / `SetIndices` / `SetVertexDeclaration` / `SetFVF`）：靠对象指针比较，依赖客户端状态镜像与服务端严格同步。它曾导致 **HUD 花屏闪烁 / 字体消失**（state-block `Apply` 的同步有漏洞 ⇒ 误判"重复绑定"而跳过本应执行的调用）⇒ **默认关闭，不建议打开** |
 | `vkupShaderCache` / `vkupBufferPool` | True | 着色器缓存 / 顶点·索引缓冲池 |
 | `vkupLockAudit` | True | 越界锁兜底（把越界写关进临时缓冲，保护游戏堆），建议保持开启 |
 | `vkupShadowGuard` / `vkupShadowQuarantine` | False | 影子缓冲的守卫带 / 淘汰隔离校验；默认关闭以省 CPU，排障时可开 |
@@ -138,12 +138,12 @@ Left 4 Dead 2\
 
 | 现象 | 取这些 |
 |---|---|
-| 崩溃 | `l4d2bridge\errors\<进程名>_crash_<时间>.dmp` 与同名的 **`.vscript.txt`**（自动写出：出错模块+偏移、访问地址、故障线程 EBP 链、栈上的 `.nut` 名字）+ `errors\bridge32.errors.log` + `%LOCALAPPDATA%\CrashDumps\` 下的 WER dump |
-| 卡死/未响应 | `l4d2bridge\errors\<进程名>_bridge_hang_<pid>.dmp`（`left4dead2_…` = 游戏进程，`L4D2Bridge64_…` = 服务端）+ `logs\` 两份完整日志 + Windows 事件查看器里该时刻的 `Application Hang/Error` 记录 |
-| 进图卡住（黑屏/卡在载入条） | 先看 `logs\bridge32.log` 里有没有 `[dxgi-guard]` 行（记录是谁请求了本地 dxgi）与 `[vk-sanitize]` 行；若卡死反复出现，把 `l4d2bridge\errors\left4dead2_bridge_hang_*.dmp` + `bridge32.log` 一起提供 |
-| 改视频选项后卡死 | 同上；另外在 `logs\bridge32.log` 里搜 `Reset():` —— 只有 `begin` 没有 `done in … ms` 说明卡在设备重置里，把这两行连同上面的 dump 一起提供即可定位 |
-| 画面异常 | `l4d2bridge\logs\bridge32.log`（含启动配置）+ 是否关闭过 `eliminateRedundantSetterCalls` |
-| 装不上/不生效 | 先看 `bin\.l4d2bridge\RUN_OK.txt` 在不在（不在 = 从未跑起来），再看 `errors\bridge32.errors.log` 与 `bridge32.log` 开头 20 行；若系统里有 HookDLL 之类的 ODS 接收器，`bin\WOOL.log` 里的加载链行也有用 |
+| 崩溃 | `bin\.l4d2bridge\errors\<进程名>_crash_<时间>.dmp` 与同名的 **`.vscript.txt`**（自动写出：出错模块+偏移、访问地址、故障线程 EBP 链、栈上的 `.nut` 名字）+ `bin\.l4d2bridge\errors\bridge32.errors.log` + `%LOCALAPPDATA%\CrashDumps\` 下的 WER dump |
+| 卡死/未响应 | `bin\.l4d2bridge\errors\<进程名>_bridge_hang_<pid>.dmp`（`left4dead2_…` = 游戏进程，`L4D2Bridge64_…` = 服务端）+ `bin\.l4d2bridge\logs\` 两份完整日志 + Windows 事件查看器里该时刻的 `Application Hang/Error` 记录 |
+| 进图卡住（黑屏/卡在载入条） | 先看 `bin\.l4d2bridge\logs\bridge32.log` 里有没有 `[dxgi-guard]` 行（记录是谁请求了本地 dxgi）与 `[vk-sanitize]` 行；若卡死反复出现，把 `bin\.l4d2bridge\errors\left4dead2_bridge_hang_*.dmp` + `bridge32.log` 一起提供 |
+| 改视频选项后卡死 | 同上；另外在 `bin\.l4d2bridge\logs\bridge32.log` 里搜 `Reset():` —— 只有 `begin` 没有 `done in … ms` 说明卡在设备重置里，把这两行连同上面的 dump 一起提供即可定位 |
+| 画面异常（花屏/字体消失） | `bin\.l4d2bridge\logs\bridge32.log`（含启动配置）+ 确认 `bridge.conf` 里 `eliminateRedundantObjectSetterCalls = False`（这一项开启会导致 HUD 花屏） |
+| 装不上/不生效 | 先看 `bin\.l4d2bridge\RUN_OK.txt` 在不在（不在 = 从未跑起来），再看 `bin\.l4d2bridge\errors\bridge32.errors.log` 与 `bridge32.log` 开头 20 行；若系统里有 HookDLL 之类的 ODS 接收器，`bin\WOOL.log` 里的加载链行也有用 |
 
 ## 8. 已知限制
 
